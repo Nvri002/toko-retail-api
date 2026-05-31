@@ -5,22 +5,15 @@ const db      = require('../config/db');
 const R       = require('../middleware/response');
 const { verifyToken, requireAdmin } = require('../middleware/auth');
 
-/* ── POST /api/auth/login ──────────────────────────────────
-   Public endpoint — tidak perlu token
-   Body: { username, password }
-   Response: { token, expires_in, user: {...} }
-────────────────────────────────────────────────────────── */
 router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
-  // Validasi input
   if (!username || !username.trim())
     return R.badRequest(res, 'Field "username" wajib diisi');
   if (!password || !password.trim())
     return R.badRequest(res, 'Field "password" wajib diisi');
 
   try {
-    // Cari user berdasarkan username
     const [rows] = await db.execute(
       'SELECT id, nama, username, password, role, is_active FROM users WHERE username = ?',
       [username.trim().toLowerCase()]
@@ -32,18 +25,15 @@ router.post('/login', async (req, res) => {
 
     const user = rows[0];
 
-    // Cek apakah akun aktif
     if (!user.is_active) {
       return R.unauthorized(res, 'Akun Anda telah dinonaktifkan. Hubungi administrator.');
     }
 
-    // Verifikasi password dengan bcrypt
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return R.unauthorized(res, 'Username atau password salah');
     }
 
-    // Buat JWT token
     const secret     = process.env.JWT_SECRET    || 'secret_key_default';
     const expiresIn  = process.env.JWT_EXPIRES_IN || '24h';
 
@@ -56,7 +46,6 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign(payload, secret, { expiresIn });
 
-    // Decode untuk ambil waktu expire
     const decoded   = jwt.decode(token);
     const expiresAt = new Date(decoded.exp * 1000).toISOString();
 
@@ -76,10 +65,6 @@ router.post('/login', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── GET /api/auth/me ──────────────────────────────────────
-   Protected — perlu token
-   Menampilkan data user yang sedang login
-────────────────────────────────────────────────────────── */
 router.get('/me', verifyToken, async (req, res) => {
   try {
     const [rows] = await db.execute(
@@ -91,10 +76,6 @@ router.get('/me', verifyToken, async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── POST /api/auth/register ───────────────────────────────
-   Protected — hanya admin yang bisa mendaftarkan user baru
-   Body: { nama, username, password, role }
-────────────────────────────────────────────────────────── */
 router.post('/register', verifyToken, requireAdmin, async (req, res) => {
   const { nama, username, password, role } = req.body;
 
@@ -106,13 +87,11 @@ router.post('/register', verifyToken, requireAdmin, async (req, res) => {
     return R.badRequest(res, 'Role harus "admin" atau "staff"');
 
   try {
-    // Cek username sudah ada
     const [cek] = await db.execute(
       'SELECT id FROM users WHERE username = ?', [username.trim().toLowerCase()]
     );
     if (cek.length) return R.conflict(res, 'Username sudah digunakan');
 
-    // Hash password
     const hashed = await bcrypt.hash(password, 10);
 
     const [result] = await db.execute(
@@ -131,10 +110,6 @@ router.post('/register', verifyToken, requireAdmin, async (req, res) => {
   }
 });
 
-/* ── PATCH /api/auth/change-password ───────────────────────
-   Protected — user hanya bisa ganti password sendiri
-   Body: { password_lama, password_baru }
-────────────────────────────────────────────────────────── */
 router.patch('/change-password', verifyToken, async (req, res) => {
   const { password_lama, password_baru } = req.body;
 
@@ -158,10 +133,6 @@ router.patch('/change-password', verifyToken, async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── GET /api/auth/users ───────────────────────────────────
-   Protected — hanya admin
-   Daftar semua user (tanpa password)
-────────────────────────────────────────────────────────── */
 router.get('/users', verifyToken, requireAdmin, async (req, res) => {
   try {
     const [rows] = await db.execute(
@@ -171,10 +142,6 @@ router.get('/users', verifyToken, requireAdmin, async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── PATCH /api/auth/users/:id/toggle-active ───────────────
-   Protected — hanya admin
-   Aktifkan / nonaktifkan akun user
-────────────────────────────────────────────────────────── */
 router.patch('/users/:id/toggle-active', verifyToken, requireAdmin, async (req, res) => {
   try {
     const [rows] = await db.execute(

@@ -7,23 +7,18 @@ const { verifyToken } = require('./src/middleware/auth');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ── Middleware global ────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ── Public route (tidak perlu token) ────────────────────────
 app.use('/api/auth', require('./src/routes/auth'));
 
-// ── Protected routes (wajib token) ──────────────────────────
-// semua route di bawah ini melewati verifyToken terlebih dahulu
 app.use('/api/kategori',  verifyToken, require('./src/routes/kategori'));
 app.use('/api/produk',    verifyToken, require('./src/routes/produk'));
 app.use('/api/pelanggan', verifyToken, require('./src/routes/pelanggan'));
 app.use('/api/pesanan',   verifyToken, require('./src/routes/pesanan'));
 app.use('/api/statistik', verifyToken, require('./src/routes/statistik'));
 
-// ── Root info ────────────────────────────────────────────────
 app.get('/', (req, res) => {
   res.json({
     success: true,
@@ -57,7 +52,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// ── 404 handler ──────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -66,7 +60,6 @@ app.use((req, res) => {
   });
 });
 
-// ── Global error handler ─────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error('[UNHANDLED ERROR]', err.stack);
   res.status(500).json({
@@ -76,7 +69,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ── Start server ─────────────────────────────────────────────
 const pool = require('./src/config/db');
 pool.getConnection()
   .then(conn => {

@@ -2,7 +2,6 @@ const router = require('express').Router();
 const db = require('../config/db');
 const R  = require('../middleware/response');
 
-/* ── GET /api/statistik/ringkasan ─────────── */
 router.get('/ringkasan', async (req, res) => {
   try {
     const [[stats]] = await db.execute(`
@@ -29,7 +28,6 @@ router.get('/ringkasan', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── GET /api/statistik/penjualan-harian ──── */
 router.get('/penjualan-harian', async (req, res) => {
   try {
     const [rows] = await db.execute(`
@@ -46,7 +44,6 @@ router.get('/penjualan-harian', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── GET /api/statistik/penjualan-bulanan ─── */
 router.get('/penjualan-bulanan', async (req, res) => {
   try {
     const tahun = parseInt(req.query.tahun) || new Date().getFullYear();
@@ -66,7 +63,6 @@ router.get('/penjualan-bulanan', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── GET /api/statistik/produk-terlaris ───── */
 router.get('/produk-terlaris', async (req, res) => {
   try {
     const limit = Math.min(50, parseInt(req.query.limit) || 10);
@@ -87,7 +83,6 @@ router.get('/produk-terlaris', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── GET /api/statistik/pelanggan-terbaik ─── */
 router.get('/pelanggan-terbaik', async (req, res) => {
   try {
     const limit = Math.min(50, parseInt(req.query.limit) || 10);
@@ -107,7 +102,6 @@ router.get('/pelanggan-terbaik', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── GET /api/statistik/penjualan-per-kategori */
 router.get('/penjualan-per-kategori', async (req, res) => {
   try {
     const [rows] = await db.execute(`
@@ -126,7 +120,6 @@ router.get('/penjualan-per-kategori', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── GET /api/statistik/status-pesanan ────── */
 router.get('/status-pesanan', async (req, res) => {
   try {
     const [rows] = await db.execute(`
@@ -146,7 +139,6 @@ router.get('/status-pesanan', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── GET /api/statistik/metode-pembayaran ─── */
 router.get('/metode-pembayaran', async (req, res) => {
   try {
     const [rows] = await db.execute(`
@@ -162,7 +154,6 @@ router.get('/metode-pembayaran', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── GET /api/statistik/stok-produk ─────────*/
 router.get('/stok-produk', async (req, res) => {
   try {
     const [rows] = await db.execute(`

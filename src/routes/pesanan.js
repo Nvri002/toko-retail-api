@@ -5,7 +5,6 @@ const R  = require('../middleware/response');
 const VALID_STATUS = ['pending','diproses','dikirim','selesai','dibatalkan'];
 const VALID_BAYAR  = ['tunai','transfer','qris','kartu_kredit'];
 
-/* ── GET /api/pesanan ─────────────────────── */
 router.get('/', async (req, res) => {
   try {
     const page        = Math.max(1, parseInt(req.query.page)   || 1);
@@ -54,7 +53,6 @@ router.get('/', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── GET /api/pesanan/:id ─────────────────── */
 router.get('/:id', async (req, res) => {
   try {
     const [psRows] = await db.execute(
@@ -82,7 +80,6 @@ router.get('/:id', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── POST /api/pesanan ────────────────────── */
 router.post('/', async (req, res) => {
   const { pelanggan_id, metode_bayar, catatan, items } = req.body;
 
@@ -104,7 +101,7 @@ router.post('/', async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // Cek pelanggan
+
     const [[pelanggan]] = await conn.execute(
       'SELECT id FROM pelanggan WHERE id = ?', [Number(pelanggan_id)]
     );
@@ -113,7 +110,7 @@ router.post('/', async (req, res) => {
       return R.notFound(res, 'Pelanggan tidak ditemukan');
     }
 
-    // Validasi produk & stok, hitung total
+
     let totalHarga = 0;
     const enrichedItems = [];
 
@@ -122,11 +119,13 @@ router.post('/', async (req, res) => {
         'SELECT id, nama, harga, stok FROM produk WHERE id = ?', [Number(item.produk_id)]
       );
       if (!produk) {
-        await conn.rollback(); conn.release();
+        await conn.rollback();
+        conn.release();
         return R.notFound(res, `Produk ID ${item.produk_id} tidak ditemukan`);
       }
       if (produk.stok < Number(item.jumlah)) {
-        await conn.rollback(); conn.release();
+        await conn.rollback();
+        conn.release();
         return R.badRequest(res,
           `Stok produk "${produk.nama}" tidak mencukupi. Stok tersedia: ${produk.stok}`
         );
@@ -139,13 +138,13 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Generate kode pesanan
+
     const [[{ lastId }]] = await conn.execute(
       'SELECT COALESCE(MAX(id), 0) AS lastId FROM pesanan'
     );
     const kode = `ORD-${new Date().getFullYear()}-${String(lastId + 1).padStart(4, '0')}`;
 
-    // Insert pesanan
+
     const [result] = await conn.execute(
       `INSERT INTO pesanan (pelanggan_id, kode_pesanan, total_harga, metode_bayar, catatan)
        VALUES (?, ?, ?, ?, ?)`,
@@ -153,7 +152,7 @@ router.post('/', async (req, res) => {
     );
     const pesananId = result.insertId;
 
-    // Insert detail & kurangi stok
+
     for (const item of enrichedItems) {
       await conn.execute(
         `INSERT INTO detail_pesanan (pesanan_id, produk_id, jumlah, harga_satuan)
@@ -189,7 +188,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-/* ── PUT /api/pesanan/:id ─────────────────── */
 router.put('/:id', async (req, res) => {
   const { metode_bayar, catatan, status } = req.body;
 
@@ -223,7 +221,6 @@ router.put('/:id', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── PATCH /api/pesanan/:id/status ───────── */
 router.patch('/:id/status', async (req, res) => {
   const { status } = req.body;
   if (!status)
@@ -241,7 +238,6 @@ router.patch('/:id/status', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
-/* ── DELETE /api/pesanan/:id ─────────────── */
 router.delete('/:id', async (req, res) => {
   try {
     const [cek] = await db.execute('SELECT id FROM pesanan WHERE id = ?', [req.params.id]);

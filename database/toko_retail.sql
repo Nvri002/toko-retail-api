@@ -1,11 +1,3 @@
--- ============================================================
---  TOKO RETAIL DATABASE v2.0 (dengan Autentikasi)
---  Cara Import di phpMyAdmin:
---  1. Buka phpMyAdmin → http://localhost/phpmyadmin
---  2. Klik tab "Import"
---  3. Pilih file ini → klik "Go"
--- ============================================================
-
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 SET time_zone = "+07:00";
 
@@ -15,9 +7,7 @@ CREATE DATABASE IF NOT EXISTS `toko_retail`
 
 USE `toko_retail`;
 
--- ============================================================
--- TABEL 1: users  ← TABEL AUTENTIKASI
--- ============================================================
+
 DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
   `id`         INT           NOT NULL AUTO_INCREMENT,
@@ -33,16 +23,11 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='Tabel autentikasi pengguna API';
 
--- Password untuk semua user: "password123"
--- Hash bcrypt (rounds=10) dari "password123"
 INSERT INTO `users` (`nama`, `username`, `password`, `role`) VALUES
 ('Administrator', 'admin',  '$2a$10$fPeB1pVrylENv7mrp8t77e4iPtmOcS4gtxqzkvdIcsflsaDkAXtrS', 'admin'),
 ('Staff Gudang',  'staff1', '$2a$10$Mh3F4AOhHCmW9d/bsrCwxOTo.IYFvfsrlAX4SwkKryxUxTZ5oomte', 'staff'),
 ('Staff Kasir',   'staff2', '$2a$10$huN3JhbWLgpqh0VDzQSUwev3L.xQK4SxTJgvf7v3NrQxsypc3iloW', 'staff');
 
--- ============================================================
--- TABEL 2: kategori
--- ============================================================
 DROP TABLE IF EXISTS `kategori`;
 CREATE TABLE `kategori` (
   `id`         INT           NOT NULL AUTO_INCREMENT,
@@ -53,9 +38,6 @@ CREATE TABLE `kategori` (
   UNIQUE KEY `uq_kategori_nama` (`nama`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================================
--- TABEL 3: pelanggan
--- ============================================================
 DROP TABLE IF EXISTS `pelanggan`;
 CREATE TABLE `pelanggan` (
   `id`         INT           NOT NULL AUTO_INCREMENT,
@@ -70,9 +52,6 @@ CREATE TABLE `pelanggan` (
   UNIQUE KEY `uq_pelanggan_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================================
--- TABEL 4: produk
--- ============================================================
 DROP TABLE IF EXISTS `produk`;
 CREATE TABLE `produk` (
   `id`          INT            NOT NULL AUTO_INCREMENT,
@@ -91,9 +70,6 @@ CREATE TABLE `produk` (
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================================
--- TABEL 5: pesanan
--- ============================================================
 DROP TABLE IF EXISTS `pesanan`;
 CREATE TABLE `pesanan` (
   `id`            INT            NOT NULL AUTO_INCREMENT,
@@ -114,9 +90,6 @@ CREATE TABLE `pesanan` (
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================================
--- TABEL 6: detail_pesanan
--- ============================================================
 DROP TABLE IF EXISTS `detail_pesanan`;
 CREATE TABLE `detail_pesanan` (
   `id`           INT            NOT NULL AUTO_INCREMENT,
@@ -137,9 +110,6 @@ CREATE TABLE `detail_pesanan` (
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ============================================================
--- SEED DATA
--- ============================================================
 INSERT INTO `kategori` (`nama`, `deskripsi`) VALUES
 ('Elektronik',        'Perangkat elektronik dan aksesori teknologi'),
 ('Pakaian',           'Busana pria, wanita, dan anak-anak'),
