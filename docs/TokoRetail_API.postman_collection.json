@@ -1,0 +1,795 @@
+{
+  "info": {
+    "name": "TokoRetail API v2 (JWT Auth)",
+    "_postman_id": "tokoretail-api-v2",
+    "description": "REST API Toko Retail dengan JWT Authentication.\n\n## Alur Penggunaan\n1. Jalankan **[1] Login** → token tersimpan otomatis ke environment\n2. Semua request lain sudah otomatis pakai token tersebut\n3. Jalankan folder secara berurutan dari atas ke bawah\n\n## Default Users\n- **admin** / password123 (role: admin)\n- **staff1** / password123 (role: staff)\n- **staff2** / password123 (role: staff)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "🔐 [1] Autentikasi",
+      "item": [
+        {
+          "name": "Login — Dapat Token",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('success = true', () => pm.expect(pm.response.json().success).to.eql(true));",
+            "pm.test('Ada token JWT', () => {",
+            "  var d = pm.response.json().data;",
+            "  pm.expect(d).to.have.property('token');",
+            "  pm.expect(d.token).to.be.a('string').and.not.empty;",
+            "  pm.expect(d.token_type).to.eql('Bearer');",
+            "  pm.environment.set('token', d.token);",
+            "});",
+            "pm.test('Info user ada di response', () => {",
+            "  var u = pm.response.json().data.user;",
+            "  pm.expect(u).to.have.property('id');",
+            "  pm.expect(u).to.have.property('username');",
+            "  pm.expect(u).to.have.property('role');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"password123\"\n}" },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api","auth","login"] },
+            "description": "Login dengan username dan password. Token JWT disimpan otomatis ke environment variable 'token'."
+          }
+        },
+        {
+          "name": "Login — Username Salah (401)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401', () => pm.response.to.have.status(401));",
+            "pm.test('success = false', () => pm.expect(pm.response.json().success).to.eql(false));",
+            "pm.test('Pesan error ada', () => pm.expect(pm.response.json().message).to.include('salah'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"userTidakAda\",\n  \"password\": \"salah123\"\n}" },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api","auth","login"] }
+          }
+        },
+        {
+          "name": "Login — Password Salah (401)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401', () => pm.response.to.have.status(401));",
+            "pm.test('success = false', () => pm.expect(pm.response.json().success).to.eql(false));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"passwordSalah\"\n}" },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api","auth","login"] }
+          }
+        },
+        {
+          "name": "Login — Tanpa Body (400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('success = false', () => pm.expect(pm.response.json().success).to.eql(false));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api","auth","login"] }
+          }
+        },
+        {
+          "name": "GET Me — Info User Login",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Data user ada', () => {",
+            "  var d = pm.response.json().data;",
+            "  pm.expect(d).to.have.property('id');",
+            "  pm.expect(d).to.have.property('username');",
+            "  pm.expect(d).to.have.property('role');",
+            "  pm.expect(d).to.not.have.property('password');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api","auth","me"] }
+          }
+        },
+        {
+          "name": "GET Me — Tanpa Token (401)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401', () => pm.response.to.have.status(401));",
+            "pm.test('success = false', () => pm.expect(pm.response.json().success).to.eql(false));",
+            "pm.test('Pesan token tidak ditemukan', () => {",
+            "  pm.expect(pm.response.json().message.toLowerCase()).to.include('token');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api","auth","me"] },
+            "description": "Akses tanpa token → harus 401"
+          }
+        },
+        {
+          "name": "GET Me — Token Tidak Valid (401)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401', () => pm.response.to.have.status(401));",
+            "pm.test('Pesan token tidak valid', () => {",
+            "  pm.expect(pm.response.json().message.toLowerCase()).to.include('tidak valid').or.include('invalid');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer tokenpalsu.tidak.valid" }],
+            "url": { "raw": "{{base_url}}/api/auth/me", "host": ["{{base_url}}"], "path": ["api","auth","me"] }
+          }
+        },
+        {
+          "name": "POST Register User Baru (Admin Only)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('User terdaftar', () => {",
+            "  var d = pm.response.json().data;",
+            "  pm.expect(d.username).to.eql('user_baru');",
+            "  pm.expect(d).to.not.have.property('password');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"nama\": \"User Baru\",\n  \"username\": \"user_baru\",\n  \"password\": \"password123\",\n  \"role\": \"staff\"\n}" },
+            "url": { "raw": "{{base_url}}/api/auth/register", "host": ["{{base_url}}"], "path": ["api","auth","register"] }
+          }
+        },
+        {
+          "name": "GET Daftar Users (Admin Only)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('data adalah array', () => pm.expect(pm.response.json().data).to.be.an('array'));",
+            "pm.test('Password tidak tampil', () => {",
+            "  pm.response.json().data.forEach(u => {",
+            "    pm.expect(u).to.not.have.property('password');",
+            "  });",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/auth/users", "host": ["{{base_url}}"], "path": ["api","auth","users"] }
+          }
+        },
+        {
+          "name": "PATCH Ganti Password",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('success = true', () => pm.expect(pm.response.json().success).to.eql(true));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"password_lama\": \"password123\",\n  \"password_baru\": \"password123\"\n}" },
+            "url": { "raw": "{{base_url}}/api/auth/change-password", "host": ["{{base_url}}"], "path": ["api","auth","change-password"] },
+            "description": "Ganti password lama dan baru (diset sama agar tidak mengganggu test selanjutnya)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "📦 [2] Master — Kategori",
+      "item": [
+        {
+          "name": "GET Semua Kategori",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('data adalah array', () => pm.expect(pm.response.json().data).to.be.an('array'));",
+            "pm.test('Setiap kategori punya id, nama, jumlah_produk', () => {",
+            "  var d = pm.response.json().data;",
+            "  if(d.length > 0) {",
+            "    pm.expect(d[0]).to.have.all.keys(['id','nama','deskripsi','created_at','jumlah_produk']);",
+            "  }",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/kategori", "host": ["{{base_url}}"], "path": ["api","kategori"] }
+          }
+        },
+        {
+          "name": "GET Kategori — Tanpa Token (401)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401', () => pm.response.to.have.status(401));",
+            "pm.test('success = false', () => pm.expect(pm.response.json().success).to.eql(false));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/kategori", "host": ["{{base_url}}"], "path": ["api","kategori"] },
+            "description": "Membuktikan endpoint terlindungi — harus 401 tanpa token"
+          }
+        },
+        {
+          "name": "POST Buat Kategori Baru",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Kategori tersimpan', () => {",
+            "  var d = pm.response.json().data;",
+            "  pm.expect(d).to.have.property('id');",
+            "  pm.expect(d.nama).to.eql('Peralatan Dapur');",
+            "  pm.environment.set('kategori_id', d.id);",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"nama\": \"Peralatan Dapur\",\n  \"deskripsi\": \"Peralatan masak dan dapur\"\n}" },
+            "url": { "raw": "{{base_url}}/api/kategori", "host": ["{{base_url}}"], "path": ["api","kategori"] }
+          }
+        },
+        {
+          "name": "GET Kategori by ID",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Data sesuai ID', () => {",
+            "  pm.expect(pm.response.json().data.id).to.eql(Number(pm.environment.get('kategori_id')));",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/kategori/{{kategori_id}}", "host": ["{{base_url}}"], "path": ["api","kategori","{{kategori_id}}"] }
+          }
+        },
+        {
+          "name": "PUT Update Kategori",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Nama berhasil diupdate', () => {",
+            "  pm.expect(pm.response.json().data.nama).to.eql('Peralatan Dapur & Masak');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"nama\": \"Peralatan Dapur & Masak\",\n  \"deskripsi\": \"Peralatan memasak lengkap\"\n}" },
+            "url": { "raw": "{{base_url}}/api/kategori/{{kategori_id}}", "host": ["{{base_url}}"], "path": ["api","kategori","{{kategori_id}}"] }
+          }
+        },
+        {
+          "name": "DELETE Hapus Kategori",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Pesan berhasil dihapus', () => {",
+            "  pm.expect(pm.response.json().message).to.include('dihapus');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/kategori/{{kategori_id}}", "host": ["{{base_url}}"], "path": ["api","kategori","{{kategori_id}}"] }
+          }
+        },
+        {
+          "name": "GET Kategori ID Tidak Ada (404)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 404', () => pm.response.to.have.status(404));",
+            "pm.test('success = false', () => pm.expect(pm.response.json().success).to.eql(false));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/kategori/99999", "host": ["{{base_url}}"], "path": ["api","kategori","99999"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📦 [3] Master — Produk",
+      "item": [
+        {
+          "name": "GET Semua Produk (Paginasi)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Ada meta paginasi', () => {",
+            "  var m = pm.response.json().meta;",
+            "  pm.expect(m).to.have.property('total');",
+            "  pm.expect(m).to.have.property('page');",
+            "  pm.expect(m).to.have.property('limit');",
+            "  pm.expect(m).to.have.property('total_pages');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/produk?page=1&limit=10", "host": ["{{base_url}}"], "path": ["api","produk"], "query": [{"key":"page","value":"1"},{"key":"limit","value":"10"}] }
+          }
+        },
+        {
+          "name": "GET Produk — Search",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Hasil relevan', () => {",
+            "  var d = pm.response.json().data;",
+            "  d.forEach(p => pm.expect(p.nama.toLowerCase()).to.include('laptop'));",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/produk?search=laptop", "host": ["{{base_url}}"], "path": ["api","produk"], "query": [{"key":"search","value":"laptop"}] }
+          }
+        },
+        {
+          "name": "POST Tambah Produk",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Produk tersimpan', () => {",
+            "  var d = pm.response.json().data;",
+            "  pm.expect(d).to.have.property('id');",
+            "  pm.expect(d.nama).to.eql('Charger Laptop 65W');",
+            "  pm.environment.set('produk_id', d.id);",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"kategori_id\": 1,\n  \"nama\": \"Charger Laptop 65W\",\n  \"harga\": 250000,\n  \"stok\": 30,\n  \"satuan\": \"pcs\",\n  \"kode_sku\": \"ELK-TEST-01\"\n}" },
+            "url": { "raw": "{{base_url}}/api/produk", "host": ["{{base_url}}"], "path": ["api","produk"] }
+          }
+        },
+        {
+          "name": "GET Produk by ID",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Ada nama_kategori', () => {",
+            "  pm.expect(pm.response.json().data).to.have.property('nama_kategori');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/produk/{{produk_id}}", "host": ["{{base_url}}"], "path": ["api","produk","{{produk_id}}"] }
+          }
+        },
+        {
+          "name": "PUT Update Produk",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Harga terupdate', () => {",
+            "  pm.expect(Number(pm.response.json().data.harga)).to.eql(275000);",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"kategori_id\": 1,\n  \"nama\": \"Charger Laptop 65W GaN\",\n  \"harga\": 275000,\n  \"stok\": 30,\n  \"satuan\": \"pcs\",\n  \"kode_sku\": \"ELK-TEST-01\"\n}" },
+            "url": { "raw": "{{base_url}}/api/produk/{{produk_id}}", "host": ["{{base_url}}"], "path": ["api","produk","{{produk_id}}"] }
+          }
+        },
+        {
+          "name": "PATCH Update Stok",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Stok = 99', () => pm.expect(pm.response.json().data.stok).to.eql(99));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"stok\": 99\n}" },
+            "url": { "raw": "{{base_url}}/api/produk/{{produk_id}}/stok", "host": ["{{base_url}}"], "path": ["api","produk","{{produk_id}}","stok"] }
+          }
+        },
+        {
+          "name": "DELETE Hapus Produk",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Berhasil dihapus', () => pm.expect(pm.response.json().message).to.include('dihapus'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/produk/{{produk_id}}", "host": ["{{base_url}}"], "path": ["api","produk","{{produk_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 [4] Master — Pelanggan",
+      "item": [
+        {
+          "name": "GET Semua Pelanggan",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('data array + meta', () => {",
+            "  pm.expect(pm.response.json().data).to.be.an('array');",
+            "  pm.expect(pm.response.json().meta).to.have.property('total');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/pelanggan", "host": ["{{base_url}}"], "path": ["api","pelanggan"] }
+          }
+        },
+        {
+          "name": "GET Filter Level Gold",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Semua level gold', () => {",
+            "  pm.response.json().data.forEach(p => pm.expect(p.level).to.eql('gold'));",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/pelanggan?level=gold", "host": ["{{base_url}}"], "path": ["api","pelanggan"], "query": [{"key":"level","value":"gold"}] }
+          }
+        },
+        {
+          "name": "POST Tambah Pelanggan",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Pelanggan tersimpan', () => {",
+            "  var d = pm.response.json().data;",
+            "  pm.expect(d.nama).to.eql('Doni Saputra');",
+            "  pm.environment.set('pelanggan_id', d.id);",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"nama\": \"Doni Saputra\",\n  \"email\": \"doni.test.api@gmail.com\",\n  \"telepon\": \"081299887700\",\n  \"kota\": \"Pekanbaru\",\n  \"level\": \"regular\"\n}" },
+            "url": { "raw": "{{base_url}}/api/pelanggan", "host": ["{{base_url}}"], "path": ["api","pelanggan"] }
+          }
+        },
+        {
+          "name": "GET Pelanggan by ID",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Data ada', () => pm.expect(pm.response.json().data).to.have.property('email'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/pelanggan/{{pelanggan_id}}", "host": ["{{base_url}}"], "path": ["api","pelanggan","{{pelanggan_id}}"] }
+          }
+        },
+        {
+          "name": "GET Riwayat Pesanan Pelanggan",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('data array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/pelanggan/1/pesanan", "host": ["{{base_url}}"], "path": ["api","pelanggan","1","pesanan"] }
+          }
+        },
+        {
+          "name": "PUT Update Pelanggan",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Level jadi silver', () => pm.expect(pm.response.json().data.level).to.eql('silver'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"nama\": \"Doni Saputra\",\n  \"email\": \"doni.test.api@gmail.com\",\n  \"telepon\": \"081299887700\",\n  \"kota\": \"Pekanbaru\",\n  \"level\": \"silver\"\n}" },
+            "url": { "raw": "{{base_url}}/api/pelanggan/{{pelanggan_id}}", "host": ["{{base_url}}"], "path": ["api","pelanggan","{{pelanggan_id}}"] }
+          }
+        },
+        {
+          "name": "DELETE Hapus Pelanggan",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Berhasil dihapus', () => pm.expect(pm.response.json().message).to.include('dihapus'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/pelanggan/{{pelanggan_id}}", "host": ["{{base_url}}"], "path": ["api","pelanggan","{{pelanggan_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🧾 [5] Transaksional — Pesanan",
+      "item": [
+        {
+          "name": "GET Semua Pesanan",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('data array + meta', () => {",
+            "  pm.expect(pm.response.json().data).to.be.an('array');",
+            "  pm.expect(pm.response.json().meta).to.have.property('total');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/pesanan?page=1&limit=10", "host": ["{{base_url}}"], "path": ["api","pesanan"], "query": [{"key":"page","value":"1"},{"key":"limit","value":"10"}] }
+          }
+        },
+        {
+          "name": "GET Filter Status Selesai",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Semua status selesai', () => {",
+            "  pm.response.json().data.forEach(p => pm.expect(p.status).to.eql('selesai'));",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/pesanan?status=selesai", "host": ["{{base_url}}"], "path": ["api","pesanan"], "query": [{"key":"status","value":"selesai"}] }
+          }
+        },
+        {
+          "name": "POST Buat Pesanan Baru",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Kode pesanan format ORD-', () => {",
+            "  var d = pm.response.json().data;",
+            "  pm.expect(d.pesanan.kode_pesanan).to.match(/^ORD-/);",
+            "  pm.expect(d.items).to.be.an('array').and.have.length.above(0);",
+            "  pm.environment.set('pesanan_id', d.pesanan.id);",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"pelanggan_id\": 1,\n  \"metode_bayar\": \"transfer\",\n  \"catatan\": \"Test dari Postman\",\n  \"items\": [\n    { \"produk_id\": 3, \"jumlah\": 1 },\n    { \"produk_id\": 4, \"jumlah\": 2 }\n  ]\n}" },
+            "url": { "raw": "{{base_url}}/api/pesanan", "host": ["{{base_url}}"], "path": ["api","pesanan"] }
+          }
+        },
+        {
+          "name": "GET Detail Pesanan + Items",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Ada pesanan dan items', () => {",
+            "  var d = pm.response.json().data;",
+            "  pm.expect(d).to.have.property('pesanan');",
+            "  pm.expect(d).to.have.property('items');",
+            "  pm.expect(d.items).to.be.an('array');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/pesanan/{{pesanan_id}}", "host": ["{{base_url}}"], "path": ["api","pesanan","{{pesanan_id}}"] }
+          }
+        },
+        {
+          "name": "PATCH Update Status → diproses",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Status jadi diproses', () => pm.expect(pm.response.json().data.status).to.eql('diproses'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"diproses\"\n}" },
+            "url": { "raw": "{{base_url}}/api/pesanan/{{pesanan_id}}/status", "host": ["{{base_url}}"], "path": ["api","pesanan","{{pesanan_id}}","status"] }
+          }
+        },
+        {
+          "name": "PUT Update Metode Bayar",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Metode bayar = qris', () => pm.expect(pm.response.json().data.metode_bayar).to.eql('qris'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"metode_bayar\": \"qris\",\n  \"catatan\": \"Diupdate via Postman\"\n}" },
+            "url": { "raw": "{{base_url}}/api/pesanan/{{pesanan_id}}", "host": ["{{base_url}}"], "path": ["api","pesanan","{{pesanan_id}}"] }
+          }
+        },
+        {
+          "name": "POST Pesanan — Stok Tidak Cukup (400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Pesan stok', () => pm.expect(pm.response.json().message).to.include('tidak mencukupi'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"pelanggan_id\": 1,\n  \"items\": [{ \"produk_id\": 1, \"jumlah\": 999999 }]\n}" },
+            "url": { "raw": "{{base_url}}/api/pesanan", "host": ["{{base_url}}"], "path": ["api","pesanan"] }
+          }
+        },
+        {
+          "name": "DELETE Hapus Pesanan",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Berhasil dihapus', () => pm.expect(pm.response.json().message).to.include('dihapus'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/pesanan/{{pesanan_id}}", "host": ["{{base_url}}"], "path": ["api","pesanan","{{pesanan_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 [6] Statistik",
+      "item": [
+        {
+          "name": "GET Ringkasan KPI",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('KPI lengkap', () => {",
+            "  var d = pm.response.json().data;",
+            "  ['total_pesanan','total_pendapatan','rata_rata_transaksi','total_produk','total_pelanggan','produk_stok_habis'].forEach(k => {",
+            "    pm.expect(d).to.have.property(k);",
+            "  });",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/statistik/ringkasan", "host": ["{{base_url}}"], "path": ["api","statistik","ringkasan"] }
+          }
+        },
+        {
+          "name": "GET Penjualan Harian",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('data array', () => pm.expect(pm.response.json().data).to.be.an('array'));"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/statistik/penjualan-harian", "host": ["{{base_url}}"], "path": ["api","statistik","penjualan-harian"] }
+          }
+        },
+        {
+          "name": "GET Penjualan Bulanan 2024",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Ada field bulan dan label', () => {",
+            "  var d = pm.response.json().data;",
+            "  if(d.length > 0) { pm.expect(d[0]).to.have.property('bulan'); pm.expect(d[0]).to.have.property('label'); }",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/statistik/penjualan-bulanan?tahun=2024", "host": ["{{base_url}}"], "path": ["api","statistik","penjualan-bulanan"], "query": [{"key":"tahun","value":"2024"}] }
+          }
+        },
+        {
+          "name": "GET Produk Terlaris Top 5",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Maks 5 data', () => pm.expect(pm.response.json().data.length).to.be.at.most(5));",
+            "pm.test('Urut descending', () => {",
+            "  var d = pm.response.json().data;",
+            "  for(var i=0;i<d.length-1;i++) pm.expect(Number(d[i].total_terjual)).to.be.at.least(Number(d[i+1].total_terjual));",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/statistik/produk-terlaris?limit=5", "host": ["{{base_url}}"], "path": ["api","statistik","produk-terlaris"], "query": [{"key":"limit","value":"5"}] }
+          }
+        },
+        {
+          "name": "GET Pelanggan Terbaik",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Ada total_belanja', () => {",
+            "  var d = pm.response.json().data;",
+            "  if(d.length > 0) pm.expect(d[0]).to.have.property('total_belanja');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/statistik/pelanggan-terbaik?limit=5", "host": ["{{base_url}}"], "path": ["api","statistik","pelanggan-terbaik"], "query": [{"key":"limit","value":"5"}] }
+          }
+        },
+        {
+          "name": "GET Penjualan per Kategori",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Ada field kategori dan pendapatan', () => {",
+            "  var d = pm.response.json().data;",
+            "  if(d.length > 0) { pm.expect(d[0]).to.have.property('kategori'); pm.expect(d[0]).to.have.property('total_pendapatan'); }",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/statistik/penjualan-per-kategori", "host": ["{{base_url}}"], "path": ["api","statistik","penjualan-per-kategori"] }
+          }
+        },
+        {
+          "name": "GET Distribusi Status Pesanan",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Ada field persentase', () => {",
+            "  pm.response.json().data.forEach(s => pm.expect(s).to.have.property('persentase'));",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/statistik/status-pesanan", "host": ["{{base_url}}"], "path": ["api","statistik","status-pesanan"] }
+          }
+        },
+        {
+          "name": "GET Metode Pembayaran",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Ada metode_bayar', () => {",
+            "  var d = pm.response.json().data;",
+            "  if(d.length > 0) pm.expect(d[0]).to.have.property('metode_bayar');",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/statistik/metode-pembayaran", "host": ["{{base_url}}"], "path": ["api","statistik","metode-pembayaran"] }
+          }
+        },
+        {
+          "name": "GET Kondisi Stok Produk",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Ada ringkasan dan produk', () => {",
+            "  var d = pm.response.json().data;",
+            "  pm.expect(d).to.have.property('ringkasan');",
+            "  pm.expect(d).to.have.property('produk');",
+            "  pm.expect(d.ringkasan).to.have.all.keys(['habis','menipis','aman']);",
+            "});"
+          ], "type": "text/javascript" } }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/api/statistik/stok-produk", "host": ["{{base_url}}"], "path": ["api","statistik","stok-produk"] }
+          }
+        }
+      ]
+    }
+  ]
+}
