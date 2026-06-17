@@ -5,6 +5,13 @@ const R  = require('../middleware/response');
 const VALID_STATUS = ['pending','diproses','dikirim','selesai','dibatalkan'];
 const VALID_BAYAR  = ['tunai','transfer','qris','kartu_kredit'];
 
+// Helper: validasi ID harus integer murni — fix bug "12fjdifnasodjjf" → 12
+function parseId(raw) {
+  if (!/^\d+$/.test(String(raw))) return null;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 router.get('/', async (req, res) => {
   try {
     const page        = Math.max(1, parseInt(req.query.page)   || 1);
@@ -53,7 +60,11 @@ router.get('/', async (req, res) => {
   } catch (e) { return R.serverError(res, e); }
 });
 
+// GET /:id — FIX BUG 1: validasi ID integer murni sebelum query
 router.get('/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return R.notFound(res, 'Pesanan tidak ditemukan');
+
   try {
     const [psRows] = await db.execute(
       `SELECT ps.*,
@@ -62,7 +73,7 @@ router.get('/:id', async (req, res) => {
        FROM pesanan ps
        JOIN pelanggan pl ON ps.pelanggan_id = pl.id
        WHERE ps.id = ?`,
-      [req.params.id]
+      [id]
     );
     if (!psRows.length) return R.notFound(res, 'Pesanan tidak ditemukan');
 
@@ -73,7 +84,7 @@ router.get('/:id', async (req, res) => {
        JOIN produk   pr ON dp.produk_id    = pr.id
        JOIN kategori k  ON pr.kategori_id  = k.id
        WHERE dp.pesanan_id = ?`,
-      [req.params.id]
+      [id]
     );
 
     return R.ok(res, { pesanan: psRows[0], items });
@@ -101,7 +112,6 @@ router.post('/', async (req, res) => {
   try {
     await conn.beginTransaction();
 
-
     const [[pelanggan]] = await conn.execute(
       'SELECT id FROM pelanggan WHERE id = ?', [Number(pelanggan_id)]
     );
@@ -109,7 +119,6 @@ router.post('/', async (req, res) => {
       await conn.rollback(); conn.release();
       return R.notFound(res, 'Pelanggan tidak ditemukan');
     }
-
 
     let totalHarga = 0;
     const enrichedItems = [];
@@ -119,13 +128,11 @@ router.post('/', async (req, res) => {
         'SELECT id, nama, harga, stok FROM produk WHERE id = ?', [Number(item.produk_id)]
       );
       if (!produk) {
-        await conn.rollback();
-        conn.release();
+        await conn.rollback(); conn.release();
         return R.notFound(res, `Produk ID ${item.produk_id} tidak ditemukan`);
       }
       if (produk.stok < Number(item.jumlah)) {
-        await conn.rollback();
-        conn.release();
+        await conn.rollback(); conn.release();
         return R.badRequest(res,
           `Stok produk "${produk.nama}" tidak mencukupi. Stok tersedia: ${produk.stok}`
         );
@@ -138,12 +145,10 @@ router.post('/', async (req, res) => {
       });
     }
 
-
     const [[{ lastId }]] = await conn.execute(
       'SELECT COALESCE(MAX(id), 0) AS lastId FROM pesanan'
     );
     const kode = `ORD-${new Date().getFullYear()}-${String(lastId + 1).padStart(4, '0')}`;
-
 
     const [result] = await conn.execute(
       `INSERT INTO pesanan (pelanggan_id, kode_pesanan, total_harga, metode_bayar, catatan)
@@ -151,7 +156,6 @@ router.post('/', async (req, res) => {
       [Number(pelanggan_id), kode, totalHarga, metode_bayar || 'tunai', catatan || null]
     );
     const pesananId = result.insertId;
-
 
     for (const item of enrichedItems) {
       await conn.execute(
@@ -182,23 +186,69 @@ router.post('/', async (req, res) => {
     return R.created(res, { pesanan, items: itemsResult }, 'Pesanan berhasil dibuat');
 
   } catch (e) {
-    await conn.rollback();
-    conn.release();
+    await conn.rollback(); conn.release();
     return R.serverError(res, e);
   }
 });
 
+// PUT /:id — FIX BUG 1 (validasi ID) + FIX BUG 2 (restore stok saat dibatalkan)
 router.put('/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return R.notFound(res, 'Pesanan tidak ditemukan');
+
   const { metode_bayar, catatan, status } = req.body;
 
-  if (status      && !VALID_STATUS.includes(status))
+  if (status       && !VALID_STATUS.includes(status))
     return R.badRequest(res, `Status tidak valid. Pilihan: ${VALID_STATUS.join(', ')}`);
   if (metode_bayar && !VALID_BAYAR.includes(metode_bayar))
     return R.badRequest(res, `Metode bayar tidak valid. Pilihan: ${VALID_BAYAR.join(', ')}`);
 
+  const conn = await db.getConnection();
   try {
-    const [cek] = await db.execute('SELECT id FROM pesanan WHERE id = ?', [req.params.id]);
-    if (!cek.length) return R.notFound(res, 'Pesanan tidak ditemukan');
+    await conn.beginTransaction();
+
+    const [[pesanan]] = await conn.execute(
+      'SELECT id, status FROM pesanan WHERE id = ?', [id]
+    );
+    if (!pesanan) {
+      await conn.rollback(); conn.release();
+      return R.notFound(res, 'Pesanan tidak ditemukan');
+    }
+
+    // FIX BUG 2: jika status berubah ke 'dibatalkan', restore stok semua item
+    if (status === 'dibatalkan' && pesanan.status !== 'dibatalkan') {
+      const [items] = await conn.execute(
+        'SELECT produk_id, jumlah FROM detail_pesanan WHERE pesanan_id = ?', [id]
+      );
+      for (const item of items) {
+        await conn.execute(
+          'UPDATE produk SET stok = stok + ? WHERE id = ?',
+          [item.jumlah, item.produk_id]
+        );
+      }
+    }
+
+    // Jika status dari 'dibatalkan' kembali ke status lain, kurangi stok lagi
+    if (pesanan.status === 'dibatalkan' && status && status !== 'dibatalkan') {
+      const [items] = await conn.execute(
+        'SELECT produk_id, jumlah FROM detail_pesanan WHERE pesanan_id = ?', [id]
+      );
+      for (const item of items) {
+        const [[produk]] = await conn.execute(
+          'SELECT stok FROM produk WHERE id = ?', [item.produk_id]
+        );
+        if (produk.stok < item.jumlah) {
+          await conn.rollback(); conn.release();
+          return R.badRequest(res,
+            `Stok tidak mencukupi untuk reaktivasi pesanan ini`
+          );
+        }
+        await conn.execute(
+          'UPDATE produk SET stok = stok - ? WHERE id = ?',
+          [item.jumlah, item.produk_id]
+        );
+      }
+    }
 
     const sets   = [];
     const params = [];
@@ -206,46 +256,143 @@ router.put('/:id', async (req, res) => {
     if (catatan      !== undefined) { sets.push('catatan = ?');      params.push(catatan || null); }
     if (status       !== undefined) { sets.push('status = ?');       params.push(status); }
 
-    if (sets.length === 0)
+    if (sets.length === 0) {
+      await conn.rollback(); conn.release();
       return R.badRequest(res, 'Tidak ada field yang dikirim untuk diperbarui');
+    }
 
-    params.push(req.params.id);
-    await db.execute(`UPDATE pesanan SET ${sets.join(', ')} WHERE id = ?`, params);
+    params.push(id);
+    await conn.execute(`UPDATE pesanan SET ${sets.join(', ')} WHERE id = ?`, params);
+    await conn.commit();
 
-    const [rows] = await db.execute(
+    const [[rows]] = await conn.execute(
       `SELECT ps.*, pl.nama AS nama_pelanggan
        FROM pesanan ps JOIN pelanggan pl ON ps.pelanggan_id = pl.id
-       WHERE ps.id = ?`, [req.params.id]
+       WHERE ps.id = ?`, [id]
     );
-    return R.ok(res, rows[0], 'Pesanan berhasil diperbarui');
-  } catch (e) { return R.serverError(res, e); }
+    conn.release();
+    return R.ok(res, rows, 'Pesanan berhasil diperbarui');
+  } catch (e) {
+    await conn.rollback(); conn.release();
+    return R.serverError(res, e);
+  }
 });
 
+// PATCH /:id/status — FIX BUG 1 (validasi ID) + FIX BUG 2 (restore stok saat dibatalkan)
 router.patch('/:id/status', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return R.notFound(res, 'Pesanan tidak ditemukan');
+
   const { status } = req.body;
   if (!status)
     return R.badRequest(res, 'Field "status" wajib diisi');
   if (!VALID_STATUS.includes(status))
     return R.badRequest(res, `Status tidak valid. Pilihan: ${VALID_STATUS.join(', ')}`);
+
+  const conn = await db.getConnection();
   try {
-    const [cek] = await db.execute('SELECT id FROM pesanan WHERE id = ?', [req.params.id]);
-    if (!cek.length) return R.notFound(res, 'Pesanan tidak ditemukan');
-    await db.execute('UPDATE pesanan SET status = ? WHERE id = ?', [status, req.params.id]);
-    const [rows] = await db.execute(
-      'SELECT id, kode_pesanan, status, total_harga FROM pesanan WHERE id = ?', [req.params.id]
+    await conn.beginTransaction();
+
+    const [[pesanan]] = await conn.execute(
+      'SELECT id, status FROM pesanan WHERE id = ?', [id]
     );
-    return R.ok(res, rows[0], 'Status pesanan berhasil diperbarui');
-  } catch (e) { return R.serverError(res, e); }
+    if (!pesanan) {
+      await conn.rollback(); conn.release();
+      return R.notFound(res, 'Pesanan tidak ditemukan');
+    }
+
+    // Tidak ada perubahan status
+    if (pesanan.status === status) {
+      await conn.rollback(); conn.release();
+      return R.ok(res, { id, status }, `Status pesanan sudah "${status}"`);
+    }
+
+    // FIX BUG 2: restore stok jika diubah ke 'dibatalkan'
+    if (status === 'dibatalkan' && pesanan.status !== 'dibatalkan') {
+      const [items] = await conn.execute(
+        'SELECT produk_id, jumlah FROM detail_pesanan WHERE pesanan_id = ?', [id]
+      );
+      for (const item of items) {
+        await conn.execute(
+          'UPDATE produk SET stok = stok + ? WHERE id = ?',
+          [item.jumlah, item.produk_id]
+        );
+      }
+    }
+
+    // Jika reaktivasi dari 'dibatalkan', kurangi stok lagi (cek dulu kecukupan)
+    if (pesanan.status === 'dibatalkan' && status !== 'dibatalkan') {
+      const [items] = await conn.execute(
+        'SELECT dp.produk_id, dp.jumlah, pr.stok, pr.nama FROM detail_pesanan dp JOIN produk pr ON dp.produk_id = pr.id WHERE dp.pesanan_id = ?',
+        [id]
+      );
+      for (const item of items) {
+        if (item.stok < item.jumlah) {
+          await conn.rollback(); conn.release();
+          return R.badRequest(res,
+            `Stok "${item.nama}" tidak mencukupi untuk reaktivasi pesanan (tersedia: ${item.stok})`
+          );
+        }
+        await conn.execute(
+          'UPDATE produk SET stok = stok - ? WHERE id = ?',
+          [item.jumlah, item.produk_id]
+        );
+      }
+    }
+
+    await conn.execute('UPDATE pesanan SET status = ? WHERE id = ?', [status, id]);
+    await conn.commit();
+
+    const [[rows]] = await conn.execute(
+      'SELECT id, kode_pesanan, status, total_harga FROM pesanan WHERE id = ?', [id]
+    );
+    conn.release();
+    return R.ok(res, rows, 'Status pesanan berhasil diperbarui');
+  } catch (e) {
+    await conn.rollback(); conn.release();
+    return R.serverError(res, e);
+  }
 });
 
+// DELETE /:id — FIX BUG 1 (validasi ID)
 router.delete('/:id', async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) return R.notFound(res, 'Pesanan tidak ditemukan');
+
+  const conn = await db.getConnection();
   try {
-    const [cek] = await db.execute('SELECT id FROM pesanan WHERE id = ?', [req.params.id]);
-    if (!cek.length) return R.notFound(res, 'Pesanan tidak ditemukan');
+    await conn.beginTransaction();
+
+    const [[pesanan]] = await conn.execute(
+      'SELECT id, status FROM pesanan WHERE id = ?', [id]
+    );
+    if (!pesanan) {
+      await conn.rollback(); conn.release();
+      return R.notFound(res, 'Pesanan tidak ditemukan');
+    }
+
+    // Jika pesanan belum dibatalkan, restore stok sebelum hapus
+    if (pesanan.status !== 'dibatalkan') {
+      const [items] = await conn.execute(
+        'SELECT produk_id, jumlah FROM detail_pesanan WHERE pesanan_id = ?', [id]
+      );
+      for (const item of items) {
+        await conn.execute(
+          'UPDATE produk SET stok = stok + ? WHERE id = ?',
+          [item.jumlah, item.produk_id]
+        );
+      }
+    }
+
     // detail_pesanan ikut terhapus via ON DELETE CASCADE
-    await db.execute('DELETE FROM pesanan WHERE id = ?', [req.params.id]);
+    await conn.execute('DELETE FROM pesanan WHERE id = ?', [id]);
+    await conn.commit();
+    conn.release();
     return R.ok(res, null, 'Pesanan berhasil dihapus');
-  } catch (e) { return R.serverError(res, e); }
+  } catch (e) {
+    await conn.rollback(); conn.release();
+    return R.serverError(res, e);
+  }
 });
 
 module.exports = router;
