@@ -9,11 +9,15 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors({
   origin: [
-    'http://localhost:5173',                          // development
-    'https://toko-retail-frontend.vercel.app',        // ganti dengan URL Vercel kamu
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://toko-retail-frontend-9q68.vercel.app',
+    /\.vercel\.app$/,  // izinkan semua subdomain vercel (preview deployments)
   ],
   credentials: true,
-}))
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
