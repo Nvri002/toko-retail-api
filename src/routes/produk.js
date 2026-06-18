@@ -50,15 +50,15 @@ router.get('/:id', async (req, res) => {
 // POST /api/produk
 router.post('/', async (req, res) => {
   try {
-    const { nama, kode_sku, kategori_id, harga, stok, satuan, deskripsi } = req.body;
+    const { nama, kode_sku, kategori_id, harga, stok, satuan } = req.body;
     if (!nama)        return R.badRequest(res, 'Field "nama" wajib diisi');
     if (!harga)       return R.badRequest(res, 'Field "harga" wajib diisi');
     if (!kategori_id) return R.badRequest(res, 'Field "kategori_id" wajib diisi');
 
     const [result] = await db.execute(
-      `INSERT INTO produk (nama, kode_sku, kategori_id, harga, stok, satuan, deskripsi)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [nama, kode_sku || null, Number(kategori_id), Number(harga), Number(stok) || 0, satuan || null, deskripsi || null]
+      `INSERT INTO produk (nama, kode_sku, kategori_id, harga, stok, satuan)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [nama, kode_sku || null, Number(kategori_id), Number(harga), Number(stok) || 0, satuan || 'pcs']
     );
     const [[produk]] = await db.execute(
       `SELECT pr.*, k.nama AS nama_kategori FROM produk pr
@@ -77,10 +77,10 @@ router.put('/:id', async (req, res) => {
     const [cek] = await db.execute('SELECT id FROM produk WHERE id = ?', [req.params.id]);
     if (!cek.length) return R.notFound(res, 'Produk tidak ditemukan');
 
-    const { nama, kode_sku, kategori_id, harga, stok, satuan, deskripsi } = req.body;
+    const { nama, kode_sku, kategori_id, harga, stok, satuan } = req.body;
     await db.execute(
-      `UPDATE produk SET nama=?, kode_sku=?, kategori_id=?, harga=?, stok=?, satuan=?, deskripsi=? WHERE id=?`,
-      [nama, kode_sku || null, Number(kategori_id), Number(harga), Number(stok) || 0, satuan || null, deskripsi || null, req.params.id]
+      `UPDATE produk SET nama=?, kode_sku=?, kategori_id=?, harga=?, stok=?, satuan=? WHERE id=?`,
+      [nama, kode_sku || null, Number(kategori_id), Number(harga), Number(stok) || 0, satuan || 'pcs', req.params.id]
     );
     const [[produk]] = await db.execute(
       `SELECT pr.*, k.nama AS nama_kategori FROM produk pr
