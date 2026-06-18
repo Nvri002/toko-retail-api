@@ -91,13 +91,29 @@ router.patch('/:id/stok', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
   try {
-    const [cek] = await db.execute('SELECT id FROM produk WHERE id = ?', [req.params.id]);
-    if (!cek.length) return R.notFound(res, 'Produk tidak ditemukan');
+    const [[produk]] = await db.execute('SELECT id, nama FROM produk WHERE id = ?', [req.params.id]);
+    if (!produk) return R.notFound(res, 'Produk tidak ditemukan');
+
+    // Cek apakah produk ini ada di pesanan yang statusnya BUKAN dibatalkan
+    const [[{ aktif }]] = await db.execute(
+      `SELECT COUNT(*) AS aktif
+       FROM detail_pesanan dp
+       JOIN pesanan ps ON dp.pesanan_id = ps.id
+       WHERE dp.produk_id = ? AND ps.status != 'dibatalkan'`,
+      [req.params.id]
+    );
+
+    if (aktif > 0) {
+      return R.badRequest(res,
+        `Produk "${produk.nama}" tidak bisa dihapus karena masih ada di ${aktif} pesanan aktif. Batalkan pesanan tersebut terlebih dahulu.`
+      );
+    }
+
+    // Semua pesanan terkait sudah dibatalkan (atau tidak ada pesanan) → boleh hapus
     await db.execute('DELETE FROM produk WHERE id = ?', [req.params.id]);
-    return R.ok(res, null, 'Produk berhasil dihapus');
+    return R.ok(res, null, `Produk "${produk.nama}" berhasil dihapus`);
+
   } catch (e) {
-    if (e.code === 'ER_ROW_IS_REFERENCED_2')
-      return R.badRequest(res, 'Produk tidak bisa dihapus karena sudah ada di detail pesanan');
     return R.serverError(res, e);
   }
 });
