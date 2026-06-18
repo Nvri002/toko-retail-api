@@ -47,18 +47,20 @@ router.get('/penjualan-harian', async (req, res) => {
 router.get('/penjualan-bulanan', async (req, res) => {
   try {
     const tahun = parseInt(req.query.tahun) || new Date().getFullYear();
+    if (isNaN(tahun) || tahun < 2000 || tahun > 2100)
+      return R.badRequest(res, 'Parameter "tahun" tidak valid');
     const [rows] = await db.execute(`
       SELECT DATE_FORMAT(tanggal_pesan,'%Y-%m') AS bulan,
              DATE_FORMAT(tanggal_pesan,'%M %Y') AS label,
-             COUNT(*)                           AS jumlah_pesanan,
-             SUM(total_harga)                   AS total_pendapatan,
-             AVG(total_harga)                   AS rata_rata
+             COUNT(*)                              AS jumlah_pesanan,
+             COALESCE(SUM(total_harga), 0)         AS total_pendapatan,
+             COALESCE(AVG(total_harga), 0)         AS rata_rata
       FROM pesanan
       WHERE status != 'dibatalkan'
         AND YEAR(tanggal_pesan) = ?
-      GROUP BY DATE_FORMAT(tanggal_pesan,'%Y-%m')
-      ORDER BY bulan ASC
-    `, [tahun]);
+      GROUP BY DATE_FORMAT(tanggal_pesan,'%Y-%m'), DATE_FORMAT(tanggal_pesan,'%M %Y')
+      ORDER BY DATE_FORMAT(tanggal_pesan,'%Y-%m') ASC
+    `, [Number(tahun)]);
     return R.ok(res, rows, `Data penjualan bulanan tahun ${tahun}`);
   } catch (e) { return R.serverError(res, e); }
 });
